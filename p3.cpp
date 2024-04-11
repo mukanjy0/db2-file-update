@@ -72,7 +72,8 @@ class VariableRecordB {
         int sz {};
 
         f.read(reinterpret_cast<char*>(&sz), sizeof(int));
-        char* aux = new char[sz];
+        char* aux = new char[sz+1];
+        aux[sz] = '\0';
         f.read(aux, sz);
         e.code = string(aux);
 
@@ -83,8 +84,9 @@ class VariableRecordB {
         f.read(reinterpret_cast<char*>(&e.monthlyPayment), sz);
 
         f.read(reinterpret_cast<char*>(&sz), sizeof(int));
-
-        aux = new char[sz];
+        delete[] aux;
+        aux = new char[sz+1];
+        aux[sz] = '\0';
         f.read(aux, sz);
         e.observations = string(aux);
         delete[] aux;
@@ -197,13 +199,9 @@ void test() {
     vector<Enrollment> v = vr.load();
     for (int i = 0; i < (int)v.size(); ++i)
         assert(enrollments[i] == v[i]);
-//        if (enrollments[i] != v[i]) {
-//            cout << enrollments[i] << "----------------------------\n";
-//            cout << v[i] << "===========================\n";
-//        }
 
     // test read
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 9; ++i) {
         assert(enrollments[i] == vr.readRecord(i));
     }
 }
