@@ -192,8 +192,8 @@ void test() {
             {"CS2027", 8, 1200.50, "Must take CS2019 first."},
             {"CS2028", 9, 1200.50, "Must take CS2019 first."}
     };
-//    for (const auto& e : enrollments)
-//        vr.add(e);
+    for (const auto& e : enrollments)
+        vr.add(e);
 
     // test load
     vector<Enrollment> v = vr.load();
