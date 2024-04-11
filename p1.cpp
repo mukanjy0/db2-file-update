@@ -100,6 +100,48 @@ class FixedRecord {
         return true;
     }
 
+    vector<Student> loadFL() {
+
+    }
+    void addFL(Student& record) {
+        int nextDel {};
+        fstream f (filename, ios::in | ios::out | ios::binary);
+        f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+
+        int nD {};
+        if (nextDel) {
+            f.seekg(nextDel * (sizeof(Student) + sizeof(int)) + sizeof(Student));
+            f.seekp(nextDel * (sizeof(Student) + sizeof(int)));
+            f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+
+            f.write(reinterpret_cast<char*>(&record), sizeof(Student));
+            f.write(reinterpret_cast<char*>(&nD), sizeof(int));
+
+            f.seekp(0);
+            f.write(reinterpret_cast<char*>(&nextDel), sizeof(int));
+        }
+        else {
+            f.seekp(0, ios::end);
+            f.write(reinterpret_cast<char*>(&record), sizeof(Student));
+            f.write(reinterpret_cast<char*>(&nD), sizeof(int));
+        }
+    }
+    Student readRecordFL(int pos) {
+        ifstream f (filename, ios::binary);
+        f.seekg(++pos * (sizeof(Student) + sizeof(int)));
+        if (!f.good()) throw runtime_error("Invalid record index.");
+
+        Student s {};
+        f.read(reinterpret_cast<char*>(&s), sizeof(Student));
+        return s;
+    }
+    bool removeFL(int pos) {
+        int nextDel {};
+        fstream f (filename, ios::in | ios::out | ios::binary);
+        f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+    }
+
+
 public:
     explicit FixedRecord(const char* filename, const char* mode) : mtl(mode[0]=='F') {
         this->filename = new char[strlen(filename) + 1];
@@ -109,8 +151,8 @@ public:
         if (!f.is_open()) {
             f.clear();
             f.open(filename, ios::out | ios::binary);
-            int n {};
-            f.write(reinterpret_cast<char *>(&n), sizeof(Student));
+            int header {};
+            f.write(reinterpret_cast<char*>(&header), sizeof(Student)+(!mtl)*sizeof(int));
         }
         f.close();
     }

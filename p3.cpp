@@ -13,10 +13,10 @@ using namespace std;
 class VariableRecordB;
 
 class Enrollment {
-    string code;
-    int semester;
-    float monthlyPayment;
-    string observations;
+    string code {};
+    int semester {};
+    float monthlyPayment {};
+    string observations {};
     friend VariableRecordB;
 public:
     Enrollment() = default;
