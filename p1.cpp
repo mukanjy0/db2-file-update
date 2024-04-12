@@ -101,7 +101,20 @@ class FixedRecord {
     }
 
     vector<Student> loadFL() {
+        int nextDel {};
+        ifstream f (filename, ios::binary);
+        f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
 
+        vector<Student> students;
+        int curNextDel {}, pos {1};
+        f.seekg(sizeof(Student) + sizeof(int));
+        Student s {};
+        while (true) {
+            f.read(reinterpret_cast<char*>(&s), sizeof(Student));
+            f.read(reinterpret_cast<char*>(&curNextDel), sizeof(int));
+            if (!f.good()) return students;
+            if (pos != nextDel && curNextDel == 0) students.push_back(s);
+        }
     }
     void addFL(Student& record) {
         int nextDel {};
@@ -110,8 +123,8 @@ class FixedRecord {
 
         int nD {};
         if (nextDel) {
-            f.seekg(nextDel * (sizeof(Student) + sizeof(int)) + sizeof(Student));
-            f.seekp(nextDel * (sizeof(Student) + sizeof(int)));
+            f.seekg(nextDel * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
+            f.seekp(nextDel * (int)(sizeof(Student) + sizeof(int)));
             f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
 
             f.write(reinterpret_cast<char*>(&record), sizeof(Student));
@@ -128,17 +141,34 @@ class FixedRecord {
     }
     Student readRecordFL(int pos) {
         ifstream f (filename, ios::binary);
-        f.seekg(++pos * (sizeof(Student) + sizeof(int)));
+        f.seekg(++pos * (int)(sizeof(Student) + sizeof(int)));
         if (!f.good()) throw runtime_error("Invalid record index.");
 
         Student s {};
         f.read(reinterpret_cast<char*>(&s), sizeof(Student));
+
+        int nextDel {};
+        f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+        if (nextDel) throw runtime_error("Record at index " + to_string(pos-1) + " has been deleted.");
         return s;
     }
     bool removeFL(int pos) {
         int nextDel {};
         fstream f (filename, ios::in | ios::out | ios::binary);
         f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+
+        f.seekg(++pos * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
+        int isDel {};
+        f.read(reinterpret_cast<char*>(&isDel), sizeof(int));
+        if (!f.good()||nextDel==pos||isDel) return false;
+
+        f.seekp(++pos * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
+        f.write(reinterpret_cast<char*>(&nextDel), sizeof(int));
+
+        f.seekp(0);
+        f.write(reinterpret_cast<char*>(&pos), sizeof(int));
+
+        return true;
     }
 
 
@@ -158,21 +188,58 @@ public:
     }
     ~FixedRecord() { delete[] filename; }
     vector<Student> load() {
-        return loadMTL();
+        return mtl ? loadMTL() : loadFL();
     }
     void add(Student record) {
-        return addMTL(record);
+        return mtl ? addMTL(record) : addFL(record);
     }
     Student readRecord(int pos) { // 0-indexed
-        return readRecordMTL(pos);
+        return mtl ? readRecordMTL(pos) : readRecordFL(pos);
     }
     bool remove(int pos) { // 0-indexed
-        return removeMTL(pos);
+        return mtl ? removeMTL(pos) : removeFL(pos);
     }
 };
 
 void testMTL() {
-    FixedRecord fr ("dataP1.bin", "MOVE_THE_LAST");
+    FixedRecord fr ("dataP1MTL.bin", "MOVE_THE_LAST");
+
+    // test add
+    Student students[10] = {
+            {"A001", "Ana", "Perez", "INF", 1, 1200.50},
+            {"A002", "Luis", "Gomez", "ADM", 2, 1100.00},
+            {"A003", "Mia", "Lopez", "DER", 3, 1300.75},
+            {"A004", "Juan", "Diaz", "MED", 4, 1400.25},
+            {"A005", "Sara", "Mora", "PSI", 1, 1250.00},
+            {"A006", "Leo", "Vega", "ARQ", 2, 1350.45},
+            {"A007", "Rita", "Solis", "CIV", 3, 1450.60},
+            {"A008", "Tito", "Luna", "IND", 4, 1550.20},
+            {"A009", "Lola", "Nuez", "INF", 1, 1150.30},
+            {"A010", "Paco", "Rio", "ADM", 2, 1050.90}
+    };
+    for (const auto& s : students)
+        fr.add(s);
+
+    // test load
+    auto v = fr.load();
+    int n = (int)size(v);
+    for (int i = 0; i < n; ++i)
+        cout << "Student " << i << ":\n" << v[i] << "-----------------------\n";
+
+    // test readRecord
+    v[0] = fr.readRecord(0);
+    cout << "Student " << 0 << ":\n" << v[0] << "-----------------------\n";
+    v[9] = fr.readRecord(9);
+    cout << "Student " << 9 << ":\n" << v[9] << "-----------------------\n";
+
+    // test remove
+    fr.remove(0);
+    v[9] = fr.readRecord(0);
+    cout << "Student " << 9 << ":\n" << v[9] << "-----------------------\n";
+}
+
+void testFL() {
+    FixedRecord fr ("dataP1FL.bin", "FREE_LIST");
 
     // test add
     Student students[10] = {
@@ -209,6 +276,6 @@ void testMTL() {
 }
 
 int main() {
-    testMTL();
+    testFL();
     return 0;
 }
