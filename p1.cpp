@@ -6,6 +6,7 @@
 #include <cstring>
 #include <vector>
 #include <fstream>
+#include <cassert>
 using namespace std;
 
 class Student {
@@ -23,10 +24,16 @@ public:
         strcpy(this->lastName, lastName);
         strcpy(this->career, career);
     }
+    friend bool operator==(const Student& s1, const Student& s2) {
+        return strcmp(s1.code, s2.code) == 0 && strcmp(s1.surname, s2.surname) == 0
+            && strcmp(s1.lastName, s2.lastName) == 0 && strcmp(s1.career, s2.career) == 0
+            && s1.semester == s2.semester && s1.monthlyPayment == s2.monthlyPayment;
+    }
+    friend bool operator!=(const Student& s1, const Student& s2) {
+        return !(s1==s2);
+    }
     friend ostream& operator<<(ostream& out, const Student& s) {
-        out << s.code << '\n';
-        out << s.surname << ' ' << s.lastName << '\n';
-        out << s.career << " - " << s.semester << " | " << s.monthlyPayment << '\n';
+        out << s.code << " | " << s.surname << " | " << s.lastName << " | " <<  s.career << "-" << s.semester << " | " << s.monthlyPayment << '\n';
         return out;
     }
 };
@@ -106,14 +113,14 @@ class FixedRecord {
         f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
 
         vector<Student> students;
-        int curNextDel {}, pos {1};
+        int curNextDel {}, pos {};
         f.seekg(sizeof(Student) + sizeof(int));
         Student s {};
         while (true) {
             f.read(reinterpret_cast<char*>(&s), sizeof(Student));
             f.read(reinterpret_cast<char*>(&curNextDel), sizeof(int));
             if (!f.good()) return students;
-            if (pos != nextDel && curNextDel == 0) students.push_back(s);
+            if (++pos != nextDel && curNextDel == 0) students.push_back(s);
         }
     }
     void addFL(Student& record) {
@@ -121,17 +128,18 @@ class FixedRecord {
         fstream f (filename, ios::in | ios::out | ios::binary);
         f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
 
-        int nD {};
+        int nD {}, curNextDel {};
         if (nextDel) {
             f.seekg(nextDel * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
             f.seekp(nextDel * (int)(sizeof(Student) + sizeof(int)));
-            f.read(reinterpret_cast<char*>(&nextDel), sizeof(int));
+            f.read(reinterpret_cast<char*>(&curNextDel), sizeof(int));
 
             f.write(reinterpret_cast<char*>(&record), sizeof(Student));
             f.write(reinterpret_cast<char*>(&nD), sizeof(int));
 
             f.seekp(0);
-            f.write(reinterpret_cast<char*>(&nextDel), sizeof(int));
+            if (nextDel == curNextDel) curNextDel = 0;
+            f.write(reinterpret_cast<char*>(&curNextDel), sizeof(int));
         }
         else {
             f.seekp(0, ios::end);
@@ -162,7 +170,8 @@ class FixedRecord {
         f.read(reinterpret_cast<char*>(&isDel), sizeof(int));
         if (!f.good()||nextDel==pos||isDel) return false;
 
-        f.seekp(++pos * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
+        f.seekp(pos * (int)(sizeof(Student) + sizeof(int)) + (int)sizeof(Student));
+        if (nextDel == 0) nextDel = pos;
         f.write(reinterpret_cast<char*>(&nextDel), sizeof(int));
 
         f.seekp(0);
@@ -173,7 +182,7 @@ class FixedRecord {
 
 
 public:
-    explicit FixedRecord(const char* filename, const char* mode) : mtl(mode[0]=='F') {
+    explicit FixedRecord(const char* filename, const char* mode) : mtl(mode[0]=='M') {
         this->filename = new char[strlen(filename) + 1];
         strcpy(this->filename, filename);
 
@@ -261,18 +270,36 @@ void testFL() {
     auto v = fr.load();
     int n = (int)size(v);
     for (int i = 0; i < n; ++i)
-        cout << "Student " << i << ":\n" << v[i] << "-----------------------\n";
+        assert(v[i] == students[i]);
+//        if (students[i] != v[i]) cout << students[i] << v[i] << "-------------------\n";
 
     // test readRecord
-    v[0] = fr.readRecord(0);
-    cout << "Student " << 0 << ":\n" << v[0] << "-----------------------\n";
-    v[9] = fr.readRecord(9);
-    cout << "Student " << 9 << ":\n" << v[9] << "-----------------------\n";
+    for (int i = 0; i < n; ++i)
+        assert(v[i] == fr.readRecord(i));
+
+    cout << boolalpha << fr.remove(1) << ' ';
+    cout << boolalpha << fr.remove(3) << ' ';
+    cout << boolalpha << fr.remove(4) << '\n';
+
+    v = fr.load();
+//    for (int i = 0; i < (int)v.size(); ++i)
+//        cout << v[i];
+    assert(v[0]==students[0]&&v[1]==students[2]&&v[2]==students[5]&&v[3]==students[6]&&v[6]==students[9]);
 
     // test remove
     fr.remove(0);
-    v[9] = fr.readRecord(0);
-    cout << "Student " << 9 << ":\n" << v[9] << "-----------------------\n";
+    try {
+        fr.readRecord(0);
+        try {
+            assert(false);
+        }
+        catch (...) {
+
+        }
+    }
+    catch (std::runtime_error& e) {
+        assert(true);
+    }
 }
 
 int main() {
